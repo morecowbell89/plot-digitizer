@@ -528,7 +528,10 @@
             <span class="shortcut">Mouse wheel</span>: Zoom<span class="divider">•</span>
             <span class="shortcut">Left-click</span>: Place points<br>
             <span class="shortcut">Minimap click</span>: Jump to location<span class="divider">•</span>
-            <span class="shortcut">+/- buttons</span>: Precise zoom
+            <span class="shortcut">+/- buttons</span>: Precise zoom<br>
+            <span class="shortcut">Arrow keys</span>: Nudge selected marker<span class="divider">•</span>
+            <span class="shortcut">Shift+Arrow</span>: Larger step<span class="divider">•</span>
+            <span class="shortcut">Esc</span>: Deselect
         </div>
     </div>
 
@@ -555,6 +558,7 @@
                     yMax: null
                 };
                 this.dataPoints = [];
+                this.selectedMarker = null;
 
                 this.initElements();
                 this.bindEvents();
@@ -690,6 +694,9 @@
 
                 // Paste functionality
                 document.addEventListener('paste', (e) => this.handlePaste(e));
+
+                // Arrow-key nudging of the selected calibration marker
+                document.addEventListener('keydown', (e) => this.handleKeyDown(e));
             }
 
             // Drag and Drop Handlers
@@ -922,9 +929,10 @@
                 });
 
                 this.mode = newMode;
-                
+
                 if (newMode === 'digitizing') {
                     this.mainViewer.classList.add('digitizing');
+                    this.selectedMarker = null;
                 } else {
                     this.mainViewer.classList.remove('digitizing');
                     // Highlight the active calibration button
@@ -936,8 +944,11 @@
                     };
                     if (buttonMap[newMode]) {
                         buttonMap[newMode].classList.add('active');
+                        // Re-select an existing marker so arrow keys can nudge it
+                        this.selectedMarker = this.calibrationPoints[newMode] ? newMode : null;
                     }
                 }
+                this.redrawOverlay();
 
                 const modeMessages = {
                     'xMin': 'Left-click on the minimum X-axis reference point',
@@ -946,8 +957,12 @@
                     'yMax': 'Left-click on the maximum Y-axis reference point',
                     'digitizing': 'Left-click to place data points • Press Stop to pause digitizing'
                 };
-                
-                this.updateStatus(modeMessages[newMode] || 'Ready', 'info');
+
+                if (this.selectedMarker === newMode) {
+                    this.updateStatus('Marker selected — nudge with arrow keys (Shift for larger steps), or left-click to re-place it', 'info');
+                } else {
+                    this.updateStatus(modeMessages[newMode] || 'Ready', 'info');
+                }
             }
 
             handleCanvasClick(event) {
@@ -956,8 +971,14 @@
                 // Only handle left clicks
                 if (event.button !== 0) return;
                 
-                // Don't process clicks in idle mode
-                if (this.mode === 'idle') return;
+                // Clicks in idle mode just deselect any selected marker
+                if (this.mode === 'idle') {
+                    if (this.selectedMarker) {
+                        this.selectedMarker = null;
+                        this.redrawOverlay();
+                    }
+                    return;
+                }
 
                 const rect = this.mainViewer.getBoundingClientRect();
                 const clickX = event.clientX - rect.left;
@@ -974,40 +995,30 @@
 
                 switch(this.mode) {
                     case 'xMin':
-                        this.calibrationPoints.xMin = {x: imageX, y: imageY};
-                        this.redrawOverlay();
-                        this.updateStatus('X-axis minimum set. Enter its value and continue calibration.', 'success');
-                        this.mode = 'idle';
-                        this.setXMinBtn.classList.remove('active');
-                        this.checkCalibration();
-                        break;
-
                     case 'xMax':
-                        this.calibrationPoints.xMax = {x: imageX, y: imageY};
-                        this.redrawOverlay();
-                        this.updateStatus('X-axis maximum set. Enter its value and continue calibration.', 'success');
-                        this.mode = 'idle';
-                        this.setXMaxBtn.classList.remove('active');
-                        this.checkCalibration();
-                        break;
-
                     case 'yMin':
-                        this.calibrationPoints.yMin = {x: imageX, y: imageY};
-                        this.redrawOverlay();
-                        this.updateStatus('Y-axis minimum set. Enter its value and continue calibration.', 'success');
+                    case 'yMax': {
+                        const axisLabels = {
+                            'xMin': 'X-axis minimum',
+                            'xMax': 'X-axis maximum',
+                            'yMin': 'Y-axis minimum',
+                            'yMax': 'Y-axis maximum'
+                        };
+                        const buttonMap = {
+                            'xMin': this.setXMinBtn,
+                            'xMax': this.setXMaxBtn,
+                            'yMin': this.setYMinBtn,
+                            'yMax': this.setYMaxBtn
+                        };
+                        this.calibrationPoints[this.mode] = {x: imageX, y: imageY};
+                        this.selectedMarker = this.mode;
+                        buttonMap[this.mode].classList.remove('active');
                         this.mode = 'idle';
-                        this.setYMinBtn.classList.remove('active');
+                        this.redrawOverlay();
+                        this.updateStatus(`${axisLabels[this.selectedMarker]} set. Fine-tune with arrow keys, then enter its value.`, 'success');
                         this.checkCalibration();
                         break;
-
-                    case 'yMax':
-                        this.calibrationPoints.yMax = {x: imageX, y: imageY};
-                        this.redrawOverlay();
-                        this.updateStatus('Y-axis maximum set. Enter its value and continue calibration.', 'success');
-                        this.mode = 'idle';
-                        this.setYMaxBtn.classList.remove('active');
-                        this.checkCalibration();
-                        break;
+                    }
 
                     case 'digitizing':
                         if (this.isCalibrated()) {
@@ -1031,10 +1042,10 @@
                 this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
 
                 // Draw calibration points
-                this.drawCalibrationPoint(this.calibrationPoints.xMin, '#ff4444', 'x');
-                this.drawCalibrationPoint(this.calibrationPoints.xMax, '#ff8844', 'x');
-                this.drawCalibrationPoint(this.calibrationPoints.yMin, '#4444ff', 'y');
-                this.drawCalibrationPoint(this.calibrationPoints.yMax, '#8844ff', 'y');
+                this.drawCalibrationPoint(this.calibrationPoints.xMin, '#ff4444', 'x', this.selectedMarker === 'xMin');
+                this.drawCalibrationPoint(this.calibrationPoints.xMax, '#ff8844', 'x', this.selectedMarker === 'xMax');
+                this.drawCalibrationPoint(this.calibrationPoints.yMin, '#4444ff', 'y', this.selectedMarker === 'yMin');
+                this.drawCalibrationPoint(this.calibrationPoints.yMax, '#8844ff', 'y', this.selectedMarker === 'yMax');
 
                 // Draw data points
                 this.dataPoints.forEach(point => {
@@ -1042,10 +1053,26 @@
                 });
             }
 
-            drawCalibrationPoint(point, color, type) {
+            drawCalibrationPoint(point, color, type, selected) {
                 if (!point) return;
 
                 this.overlayCtx.save();
+
+                // Highlight the marker the arrow keys will nudge; black underlay
+                // keeps the white dashes visible on light plot backgrounds
+                if (selected) {
+                    this.overlayCtx.setLineDash([5, 4]);
+                    this.overlayCtx.beginPath();
+                    this.overlayCtx.arc(point.x, point.y, 22, 0, 2 * Math.PI);
+                    this.overlayCtx.strokeStyle = 'black';
+                    this.overlayCtx.lineWidth = 5;
+                    this.overlayCtx.stroke();
+                    this.overlayCtx.strokeStyle = 'white';
+                    this.overlayCtx.lineWidth = 2;
+                    this.overlayCtx.stroke();
+                    this.overlayCtx.setLineDash([]);
+                }
+
                 this.overlayCtx.globalAlpha = 0.8;
                 this.overlayCtx.strokeStyle = color;
                 this.overlayCtx.lineWidth = 4;
@@ -1229,6 +1256,7 @@
 
             clearAllPoints() {
                 this.dataPoints = [];
+                this.selectedMarker = null;
                 this.calibrationPoints = {
                     xMin: null,
                     xMax: null,
@@ -1438,6 +1466,49 @@
                 if (!imageFound && event.clipboardData) {
                     this.updateStatus('No image found in clipboard. Copy a screenshot and try again.', 'error');
                 }
+            }
+
+            handleKeyDown(event) {
+                // Don't intercept keys while typing in a form control
+                const tag = document.activeElement ? document.activeElement.tagName : '';
+                if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+                if (event.key === 'Escape') {
+                    const inPlacement = ['xMin', 'xMax', 'yMin', 'yMax'].includes(this.mode);
+                    if (this.selectedMarker || inPlacement) {
+                        this.selectedMarker = null;
+                        if (inPlacement) {
+                            this.mode = 'idle';
+                            document.querySelectorAll('.top-controls button').forEach(btn => {
+                                btn.classList.remove('active');
+                            });
+                        }
+                        this.redrawOverlay();
+                        this.updateStatus('Marker deselected', 'info');
+                    }
+                    return;
+                }
+
+                const arrowMoves = {
+                    'ArrowLeft': [-1, 0],
+                    'ArrowRight': [1, 0],
+                    'ArrowUp': [0, -1],
+                    'ArrowDown': [0, 1]
+                };
+                const move = arrowMoves[event.key];
+                if (!move || !this.selectedMarker) return;
+
+                const point = this.calibrationPoints[this.selectedMarker];
+                if (!point) return;
+
+                event.preventDefault();
+
+                // Move 1 screen pixel (10 with Shift), so zooming in gives finer control
+                const step = (event.shiftKey ? 10 : 1) / this.scale;
+                point.x = Math.min(Math.max(point.x + move[0] * step, 0), this.originalWidth);
+                point.y = Math.min(Math.max(point.y + move[1] * step, 0), this.originalHeight);
+
+                this.redrawOverlay();
             }
 
             handleMinimapClick(event) {
