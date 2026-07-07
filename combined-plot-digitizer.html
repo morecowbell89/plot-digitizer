@@ -330,6 +330,28 @@
             background: rgba(255, 255, 255, 0.02);
         }
 
+        .data-table tbody tr {
+            cursor: pointer;
+        }
+
+        .data-table tr.selected,
+        .data-table tr.selected:hover,
+        .data-table tr.selected:nth-child(even) {
+            background: rgba(0, 123, 255, 0.3);
+        }
+
+        .row-delete {
+            background: transparent;
+            color: #e57373;
+            padding: 0 6px;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+        .row-delete:hover {
+            background: rgba(244, 67, 54, 0.3);
+        }
+
         .export-buttons {
             display: flex;
             gap: 5px;
@@ -529,9 +551,11 @@
             <span class="shortcut">Left-click</span>: Place points<br>
             <span class="shortcut">Minimap click</span>: Jump to location<span class="divider">•</span>
             <span class="shortcut">+/- buttons</span>: Precise zoom<br>
-            <span class="shortcut">Arrow keys</span>: Nudge selected marker<span class="divider">•</span>
+            <span class="shortcut">Arrow keys</span>: Nudge selection<span class="divider">•</span>
             <span class="shortcut">Shift+Arrow</span>: Larger step<span class="divider">•</span>
-            <span class="shortcut">Esc</span>: Deselect
+            <span class="shortcut">Esc</span>: Deselect<br>
+            <span class="shortcut">Data row click</span>: Select point<span class="divider">•</span>
+            <span class="shortcut">Del</span>: Remove selected point
         </div>
     </div>
 
@@ -559,6 +583,7 @@
                 };
                 this.dataPoints = [];
                 this.selectedMarker = null;
+                this.selectedDataPoint = null;
 
                 this.initElements();
                 this.bindEvents();
@@ -695,8 +720,11 @@
                 // Paste functionality
                 document.addEventListener('paste', (e) => this.handlePaste(e));
 
-                // Arrow-key nudging of the selected calibration marker
+                // Arrow-key nudging of the selected calibration marker or data point
                 document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+
+                // Select or delete data points from the data table
+                this.dataOutput.addEventListener('click', (e) => this.handleDataTableClick(e));
             }
 
             // Drag and Drop Handlers
@@ -933,6 +961,7 @@
                 if (newMode === 'digitizing') {
                     this.mainViewer.classList.add('digitizing');
                     this.selectedMarker = null;
+                    this.deselectDataPoint();
                 } else {
                     this.mainViewer.classList.remove('digitizing');
                     // Highlight the active calibration button
@@ -946,6 +975,7 @@
                         buttonMap[newMode].classList.add('active');
                         // Re-select an existing marker so arrow keys can nudge it
                         this.selectedMarker = this.calibrationPoints[newMode] ? newMode : null;
+                        this.deselectDataPoint();
                     }
                 }
                 this.redrawOverlay();
@@ -971,10 +1001,11 @@
                 // Only handle left clicks
                 if (event.button !== 0) return;
                 
-                // Clicks in idle mode just deselect any selected marker
+                // Clicks in idle mode just deselect any selected marker or point
                 if (this.mode === 'idle') {
-                    if (this.selectedMarker) {
+                    if (this.selectedMarker || this.selectedDataPoint !== null) {
                         this.selectedMarker = null;
+                        this.deselectDataPoint();
                         this.redrawOverlay();
                     }
                     return;
@@ -1012,6 +1043,7 @@
                         };
                         this.calibrationPoints[this.mode] = {x: imageX, y: imageY};
                         this.selectedMarker = this.mode;
+                        this.deselectDataPoint();
                         buttonMap[this.mode].classList.remove('active');
                         this.mode = 'idle';
                         this.redrawOverlay();
@@ -1048,8 +1080,8 @@
                 this.drawCalibrationPoint(this.calibrationPoints.yMax, '#8844ff', 'y', this.selectedMarker === 'yMax');
 
                 // Draw data points
-                this.dataPoints.forEach(point => {
-                    this.drawDataPoint(point.imageX, point.imageY);
+                this.dataPoints.forEach((point, index) => {
+                    this.drawDataPoint(point.imageX, point.imageY, index === this.selectedDataPoint);
                 });
             }
 
@@ -1058,19 +1090,8 @@
 
                 this.overlayCtx.save();
 
-                // Highlight the marker the arrow keys will nudge; black underlay
-                // keeps the white dashes visible on light plot backgrounds
                 if (selected) {
-                    this.overlayCtx.setLineDash([5, 4]);
-                    this.overlayCtx.beginPath();
-                    this.overlayCtx.arc(point.x, point.y, 22, 0, 2 * Math.PI);
-                    this.overlayCtx.strokeStyle = 'black';
-                    this.overlayCtx.lineWidth = 5;
-                    this.overlayCtx.stroke();
-                    this.overlayCtx.strokeStyle = 'white';
-                    this.overlayCtx.lineWidth = 2;
-                    this.overlayCtx.stroke();
-                    this.overlayCtx.setLineDash([]);
+                    this.drawSelectionRing(point.x, point.y);
                 }
 
                 this.overlayCtx.globalAlpha = 0.8;
@@ -1107,17 +1128,50 @@
                 this.overlayCtx.restore();
             }
 
-            drawDataPoint(x, y) {
-                this.overlayCtx.save();
-                this.overlayCtx.globalAlpha = 0.8;
-                this.overlayCtx.fillStyle = '#00ff00';
-                this.overlayCtx.strokeStyle = 'white';
-                this.overlayCtx.lineWidth = 3;
+            drawDataPoint(x, y, selected) {
+                const ctx = this.overlayCtx;
+                const arm = 14;   // crosshair arm length
+                const hole = 5;   // open center radius, keeps the curve visible
+
+                ctx.save();
+                ctx.globalAlpha = 0.9;
+                ctx.lineCap = 'round';
+
+                // Black underlay then green, so the hairlines read on any background
+                [['black', 4], ['#00ff00', 2]].forEach(([color, width]) => {
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = width;
+                    ctx.beginPath();
+                    ctx.moveTo(x - arm, y); ctx.lineTo(x - hole, y);
+                    ctx.moveTo(x + hole, y); ctx.lineTo(x + arm, y);
+                    ctx.moveTo(x, y - arm); ctx.lineTo(x, y - hole);
+                    ctx.moveTo(x, y + hole); ctx.lineTo(x, y + arm);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(x, y, hole, 0, 2 * Math.PI);
+                    ctx.stroke();
+                });
+
+                if (selected) {
+                    this.drawSelectionRing(x, y);
+                }
+
+                ctx.restore();
+            }
+
+            // Dashed ring around the marker/point the arrow keys will nudge;
+            // black underlay keeps the white dashes visible on light backgrounds
+            drawSelectionRing(x, y) {
+                this.overlayCtx.setLineDash([5, 4]);
                 this.overlayCtx.beginPath();
-                this.overlayCtx.arc(x, y, 8, 0, 2 * Math.PI);
-                this.overlayCtx.fill();
+                this.overlayCtx.arc(x, y, 22, 0, 2 * Math.PI);
+                this.overlayCtx.strokeStyle = 'black';
+                this.overlayCtx.lineWidth = 5;
                 this.overlayCtx.stroke();
-                this.overlayCtx.restore();
+                this.overlayCtx.strokeStyle = 'white';
+                this.overlayCtx.lineWidth = 2;
+                this.overlayCtx.stroke();
+                this.overlayCtx.setLineDash([]);
             }
 
             checkCalibration() {
@@ -1218,6 +1272,13 @@
             }
 
             updateDataOutput() {
+                this.renderDataTable();
+                if (this.dataPoints.length > 0) {
+                    this.updateStatus(`${this.dataPoints.length} data points extracted`, 'success');
+                }
+            }
+
+            renderDataTable() {
                 if (this.dataPoints.length === 0) {
                     this.dataOutput.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No data points yet. Click on the plot to extract values.</div>';
                     return;
@@ -1230,6 +1291,7 @@
                                 <th>Index</th>
                                 <th>X</th>
                                 <th>Y</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1237,10 +1299,11 @@
 
                 this.dataPoints.forEach((point, index) => {
                     tableHTML += `
-                        <tr>
+                        <tr data-index="${index}"${index === this.selectedDataPoint ? ' class="selected"' : ''}>
                             <td>${index + 1}</td>
                             <td>${point.dataX.toExponential(4)}</td>
                             <td>${point.dataY.toExponential(4)}</td>
+                            <td><button class="row-delete" data-delete="${index}" title="Delete this point">×</button></td>
                         </tr>
                     `;
                 });
@@ -1251,12 +1314,88 @@
                 `;
 
                 this.dataOutput.innerHTML = tableHTML;
-                this.updateStatus(`${this.dataPoints.length} data points extracted`, 'success');
+            }
+
+            handleDataTableClick(event) {
+                const deleteBtn = event.target.closest('[data-delete]');
+                if (deleteBtn) {
+                    this.deleteDataPoint(parseInt(deleteBtn.dataset.delete, 10));
+                    return;
+                }
+
+                const row = event.target.closest('tr[data-index]');
+                if (row) {
+                    this.selectDataPoint(parseInt(row.dataset.index, 10));
+                }
+            }
+
+            selectDataPoint(index) {
+                // Clicking the selected row again deselects it
+                if (this.selectedDataPoint === index) {
+                    this.deselectDataPoint();
+                    this.redrawOverlay();
+                    this.updateStatus('Point deselected', 'info');
+                    return;
+                }
+
+                this.selectedDataPoint = index;
+                this.selectedMarker = null;
+                this.panToPointIfHidden(this.dataPoints[index]);
+                this.redrawOverlay();
+                this.renderDataTable();
+                this.updateStatus(`Point ${index + 1} selected — nudge with arrow keys (Shift for larger steps), Delete to remove`, 'info');
+            }
+
+            deselectDataPoint() {
+                if (this.selectedDataPoint === null) return;
+                this.selectedDataPoint = null;
+                this.renderDataTable();
+            }
+
+            deleteDataPoint(index) {
+                this.dataPoints.splice(index, 1);
+                if (this.selectedDataPoint !== null) {
+                    if (this.selectedDataPoint === index) {
+                        this.selectedDataPoint = null;
+                    } else if (this.selectedDataPoint > index) {
+                        this.selectedDataPoint--;
+                    }
+                }
+                this.redrawOverlay();
+                this.renderDataTable();
+                this.undoLastBtn.disabled = this.dataPoints.length === 0;
+                this.updateStatus(`Point ${index + 1} deleted — ${this.dataPoints.length} points remaining`, 'info');
+            }
+
+            // Center the view on a point that sits outside (or near the edge of)
+            // the visible area, so the selection is always on screen
+            panToPointIfHidden(point) {
+                const viewerWidth = this.mainViewer.clientWidth;
+                const viewerHeight = this.mainViewer.clientHeight;
+                const screenX = point.imageX * this.scale + this.translateX;
+                const screenY = point.imageY * this.scale + this.translateY;
+                const margin = 40;
+
+                if (screenX >= margin && screenX <= viewerWidth - margin &&
+                    screenY >= margin && screenY <= viewerHeight - margin) {
+                    return;
+                }
+
+                this.translateX = viewerWidth / 2 - point.imageX * this.scale;
+                this.translateY = viewerHeight / 2 - point.imageY * this.scale;
+
+                this.canvasContainer.style.transition = 'transform 0.3s ease-out';
+                this.updateTransform();
+                this.updateMinimap();
+                setTimeout(() => {
+                    this.canvasContainer.style.transition = '';
+                }, 300);
             }
 
             clearAllPoints() {
                 this.dataPoints = [];
                 this.selectedMarker = null;
+                this.selectedDataPoint = null;
                 this.calibrationPoints = {
                     xMin: null,
                     xMax: null,
@@ -1291,6 +1430,9 @@
             undoLastPoint() {
                 if (this.dataPoints.length > 0) {
                     this.dataPoints.pop();
+                    if (this.selectedDataPoint !== null && this.selectedDataPoint >= this.dataPoints.length) {
+                        this.selectedDataPoint = null;
+                    }
                     this.redrawOverlay();
                     this.updateDataOutput();
                     if (this.dataPoints.length === 0) {
@@ -1475,8 +1617,9 @@
 
                 if (event.key === 'Escape') {
                     const inPlacement = ['xMin', 'xMax', 'yMin', 'yMax'].includes(this.mode);
-                    if (this.selectedMarker || inPlacement) {
+                    if (this.selectedMarker || this.selectedDataPoint !== null || inPlacement) {
                         this.selectedMarker = null;
+                        this.deselectDataPoint();
                         if (inPlacement) {
                             this.mode = 'idle';
                             document.querySelectorAll('.top-controls button').forEach(btn => {
@@ -1484,8 +1627,14 @@
                             });
                         }
                         this.redrawOverlay();
-                        this.updateStatus('Marker deselected', 'info');
+                        this.updateStatus('Selection cleared', 'info');
                     }
+                    return;
+                }
+
+                if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectedDataPoint !== null) {
+                    event.preventDefault();
+                    this.deleteDataPoint(this.selectedDataPoint);
                     return;
                 }
 
@@ -1496,15 +1645,31 @@
                     'ArrowDown': [0, 1]
                 };
                 const move = arrowMoves[event.key];
-                if (!move || !this.selectedMarker) return;
+                if (!move) return;
+
+                // Move 1 screen pixel (10 with Shift), so zooming in gives finer control
+                const step = (event.shiftKey ? 10 : 1) / this.scale;
+
+                if (this.selectedDataPoint !== null) {
+                    const point = this.dataPoints[this.selectedDataPoint];
+                    event.preventDefault();
+                    point.imageX = Math.min(Math.max(point.imageX + move[0] * step, 0), this.originalWidth);
+                    point.imageY = Math.min(Math.max(point.imageY + move[1] * step, 0), this.originalHeight);
+                    // Unlike calibration markers, a data point's values follow its position
+                    const value = this.extractDataPoint(point.imageX, point.imageY);
+                    point.dataX = value.x;
+                    point.dataY = value.y;
+                    this.redrawOverlay();
+                    this.renderDataTable();
+                    return;
+                }
+
+                if (!this.selectedMarker) return;
 
                 const point = this.calibrationPoints[this.selectedMarker];
                 if (!point) return;
 
                 event.preventDefault();
-
-                // Move 1 screen pixel (10 with Shift), so zooming in gives finer control
-                const step = (event.shiftKey ? 10 : 1) / this.scale;
                 point.x = Math.min(Math.max(point.x + move[0] * step, 0), this.originalWidth);
                 point.y = Math.min(Math.max(point.y + move[1] * step, 0), this.originalHeight);
 
