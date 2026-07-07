@@ -707,6 +707,11 @@
                 this.yMinValue.addEventListener('input', () => this.checkCalibration());
                 this.yMaxValue.addEventListener('input', () => this.checkCalibration());
 
+                // Scale type and rotation correction also affect extracted values
+                this.xScale.addEventListener('change', () => this.recomputeDataPoints());
+                this.yScale.addEventListener('change', () => this.recomputeDataPoints());
+                this.rotationCorrection.addEventListener('change', () => this.recomputeDataPoints());
+
                 // Window resize
                 window.addEventListener('resize', () => {
                     if (this.imageLoaded) {
@@ -1179,6 +1184,7 @@
                     this.startDigitizingBtn.disabled = false;
                     this.updateStatus('Calibration complete! Click "Digitize" to start extracting data points.', 'success');
                     this.calibrationStatus.textContent = 'Calibrated ✓';
+                    this.recomputeDataPoints();
                 } else {
                     this.startDigitizingBtn.disabled = true;
                     
@@ -1269,6 +1275,18 @@
                 }
 
                 return {x: xValue, y: yValue};
+            }
+
+            // Re-derive every data point's values from its image position, so the
+            // table always reflects the current calibration
+            recomputeDataPoints() {
+                if (!this.isCalibrated() || this.dataPoints.length === 0) return;
+                this.dataPoints.forEach(point => {
+                    const value = this.extractDataPoint(point.imageX, point.imageY);
+                    point.dataX = value.x;
+                    point.dataY = value.y;
+                });
+                this.renderDataTable();
             }
 
             // Plain notation with 5 significant digits for normal-range values,
@@ -1685,6 +1703,7 @@
                 point.y = Math.min(Math.max(point.y + move[1] * step, 0), this.originalHeight);
 
                 this.redrawOverlay();
+                this.recomputeDataPoints();
             }
 
             handleMinimapClick(event) {
