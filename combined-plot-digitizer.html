@@ -1271,6 +1271,17 @@
                 return {x: xValue, y: yValue};
             }
 
+            // Plain notation with 5 significant digits for normal-range values,
+            // exponential only where plain would be unreadable
+            formatValue(value) {
+                if (value === 0) return '0';
+                const abs = Math.abs(value);
+                if (abs >= 1e7 || abs < 1e-4) {
+                    return value.toExponential(4);
+                }
+                return String(Number(value.toPrecision(5)));
+            }
+
             updateDataOutput() {
                 this.renderDataTable();
                 if (this.dataPoints.length > 0) {
@@ -1301,8 +1312,8 @@
                     tableHTML += `
                         <tr data-index="${index}"${index === this.selectedDataPoint ? ' class="selected"' : ''}>
                             <td>${index + 1}</td>
-                            <td>${point.dataX.toExponential(4)}</td>
-                            <td>${point.dataY.toExponential(4)}</td>
+                            <td>${this.formatValue(point.dataX)}</td>
+                            <td>${this.formatValue(point.dataY)}</td>
                             <td><button class="row-delete" data-delete="${index}" title="Delete this point">×</button></td>
                         </tr>
                     `;
@@ -1471,7 +1482,7 @@
                 // Create tab-delimited text from data
                 let textOutput = 'Index\tX\tY\n';
                 this.dataPoints.forEach((point, index) => {
-                    textOutput += `${index + 1}\t${point.dataX.toExponential(4)}\t${point.dataY.toExponential(4)}\n`;
+                    textOutput += `${index + 1}\t${this.formatValue(point.dataX)}\t${this.formatValue(point.dataY)}\n`;
                 });
 
                 navigator.clipboard.writeText(textOutput).then(() => {
@@ -1488,8 +1499,8 @@
                     return;
                 }
 
-                const xValues = this.dataPoints.map(p => p.dataX.toExponential(4)).join(', ');
-                const yValues = this.dataPoints.map(p => p.dataY.toExponential(4)).join(', ');
+                const xValues = this.dataPoints.map(p => this.formatValue(p.dataX)).join(', ');
+                const yValues = this.dataPoints.map(p => this.formatValue(p.dataY)).join(', ');
 
                 const matlabCode = `% Extracted data from plot digitizer\n` +
                                  `% X-axis scale: ${this.xScale.value}\n` +
@@ -1533,7 +1544,7 @@
 
                 let csvContent = 'X,Y\n';
                 this.dataPoints.forEach(point => {
-                    csvContent += `${point.dataX.toExponential(4)},${point.dataY.toExponential(4)}\n`;
+                    csvContent += `${this.formatValue(point.dataX)},${this.formatValue(point.dataY)}\n`;
                 });
 
                 const blob = new Blob([csvContent], { type: 'text/csv' });
