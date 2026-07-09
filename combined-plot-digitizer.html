@@ -159,6 +159,17 @@
             max-height: none;
         }
 
+        /* Screen-space hairlines marking exact marker/point centers */
+        .hairline-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 500;
+        }
+
         /* Minimap */
         .minimap {
             position: absolute;
@@ -542,6 +553,7 @@
                 <img class="main-image" id="mainImage" style="display: none;">
                 <canvas class="overlay-canvas" id="overlayCanvas"></canvas>
             </div>
+            <canvas class="hairline-canvas" id="hairlineCanvas"></canvas>
         </div>
 
         <!-- Minimap -->
@@ -624,6 +636,8 @@
                 this.mainImage = document.getElementById('mainImage');
                 this.overlayCanvas = document.getElementById('overlayCanvas');
                 this.overlayCtx = this.overlayCanvas.getContext('2d');
+                this.hairlineCanvas = document.getElementById('hairlineCanvas');
+                this.hairlineCtx = this.hairlineCanvas.getContext('2d');
                 this.minimap = document.getElementById('minimap');
                 this.minimapImage = document.getElementById('minimapImage');
                 this.viewportIndicator = document.getElementById('viewportIndicator');
@@ -744,6 +758,7 @@
                 window.addEventListener('resize', () => {
                     if (this.imageLoaded) {
                         this.updateMinimap();
+                        this.drawHairlines();
                     }
                 });
 
@@ -933,6 +948,7 @@
                 const transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`;
                 this.canvasContainer.style.transform = transform;
                 this.zoomLevel.textContent = Math.round(this.scale * 100) + '%';
+                this.drawHairlines();
             }
 
             updateMinimap() {
@@ -1139,6 +1155,50 @@
                 this.dataPoints.forEach((point, index) => {
                     this.drawDataPoint(point.imageX, point.imageY, index === this.selectedDataPoint);
                 });
+
+                this.drawHairlines();
+            }
+
+            // Whisker-thin crosses through each marker/point center — the exact
+            // selected pixel. Drawn in screen coordinates on an unscaled canvas
+            // so they stay one device pixel wide at any zoom (the image-space
+            // overlay would blur them when scaled up), and semi-transparent so
+            // the data underneath stays visible while aligning.
+            drawHairlines() {
+                const canvas = this.hairlineCanvas;
+                const ctx = this.hairlineCtx;
+                const width = this.mainViewer.clientWidth;
+                const height = this.mainViewer.clientHeight;
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = Math.max(1, Math.round(width * dpr));
+                canvas.height = Math.max(1, Math.round(height * dpr));
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                if (!this.imageLoaded) return;
+
+                const cross = (x, y, imageSpan) => {
+                    // Snap to the pixel grid (+0.5) so a 1px stroke fills exactly one pixel
+                    const screenX = Math.round(x * this.scale + this.translateX) + 0.5;
+                    const screenY = Math.round(y * this.scale + this.translateY) + 0.5;
+                    const span = Math.max(imageSpan * this.scale, 9);
+                    if (screenX < -span || screenX > width + span ||
+                        screenY < -span || screenY > height + span) return;
+                    [['rgba(0, 0, 0, 0.35)', 3], ['rgba(255, 255, 255, 0.65)', 1]].forEach(([color, lineWidth]) => {
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = lineWidth;
+                        ctx.beginPath();
+                        ctx.moveTo(screenX - span, screenY);
+                        ctx.lineTo(screenX + span, screenY);
+                        ctx.moveTo(screenX, screenY - span);
+                        ctx.lineTo(screenX, screenY + span);
+                        ctx.stroke();
+                    });
+                };
+
+                ['xMin', 'xMax', 'yMin', 'yMax'].forEach(key => {
+                    const point = this.calibrationPoints[key];
+                    if (point) cross(point.x, point.y, 15);
+                });
+                this.dataPoints.forEach(point => cross(point.imageX, point.imageY, 14));
             }
 
             drawCalibrationPoint(point, color, type, selected) {
