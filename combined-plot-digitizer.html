@@ -275,6 +275,32 @@
             backdrop-filter: blur(10px);
         }
 
+        .data-panel-header,
+        .data-panel-content {
+            transition: opacity 0.2s;
+        }
+
+        /* Dimmed while a calibration marker owns the selection, so it's clear
+           the user is working outside the data panel; the notice explaining
+           this stays at full strength */
+        .data-panel.marker-focus .data-panel-header,
+        .data-panel.marker-focus .data-panel-content {
+            opacity: 0.45;
+        }
+
+        .data-panel-notice {
+            display: none;
+            padding: 6px 10px;
+            font-size: 11px;
+            color: #ffb74d;
+            background: rgba(255, 152, 0, 0.15);
+            border-bottom: 1px solid #555;
+        }
+
+        .data-panel.marker-focus .data-panel-notice {
+            display: block;
+        }
+
         .data-panel-header {
             padding: 10px;
             border-bottom: 1px solid #555;
@@ -530,6 +556,7 @@
                 <h4>Extracted Data</h4>
                 <button id="closeDataPanel" style="background: #666; padding: 2px 6px;">×</button>
             </div>
+            <div class="data-panel-notice" id="dataPanelNotice"></div>
             <div class="data-panel-content">
                 <div class="data-output" id="dataOutput"></div>
                 <div class="export-buttons">
@@ -634,6 +661,7 @@
                 this.toggleDataPanelBtn = document.getElementById('toggleDataPanel');
                 this.closeDataPanelBtn = document.getElementById('closeDataPanel');
                 this.dataPanel = document.getElementById('dataPanel');
+                this.dataPanelNotice = document.getElementById('dataPanelNotice');
             }
 
             bindEvents() {
@@ -1074,7 +1102,26 @@
                 }
             }
 
+            // Dim the data panel while a calibration marker is being placed or
+            // nudged, so it's obvious the selection has left the data table
+            updateDataPanelFocus() {
+                const markerLabels = {
+                    'xMin': 'X Min',
+                    'xMax': 'X Max',
+                    'yMin': 'Y Min',
+                    'yMax': 'Y Max'
+                };
+                const marker = this.selectedMarker || (markerLabels[this.mode] ? this.mode : null);
+                this.dataPanel.classList.toggle('marker-focus', marker !== null);
+                if (marker) {
+                    this.dataPanelNotice.textContent =
+                        `Adjusting ${markerLabels[marker]} marker — click a data row to get back to editing points`;
+                }
+            }
+
             redrawOverlay() {
+                this.updateDataPanelFocus();
+
                 // Clear the canvas
                 this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
 
@@ -1367,6 +1414,14 @@
                     return;
                 }
 
+                // Selecting a row pulls focus back from marker adjustment,
+                // including leaving an in-progress marker placement mode
+                if (['xMin', 'xMax', 'yMin', 'yMax'].includes(this.mode)) {
+                    this.mode = 'idle';
+                    document.querySelectorAll('.top-controls button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                }
                 this.selectedDataPoint = index;
                 this.selectedMarker = null;
                 this.panToPointIfHidden(this.dataPoints[index]);
