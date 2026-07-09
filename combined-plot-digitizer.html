@@ -997,6 +997,10 @@
                     this.deselectDataPoint();
                 } else {
                     this.mainViewer.classList.remove('digitizing');
+                    // Leaving digitize mode for a marker: restore the Digitize
+                    // button so pressing it again resumes placing points
+                    this.stopDigitizingBtn.style.display = 'none';
+                    this.startDigitizingBtn.style.display = 'block';
                     // Highlight the active calibration button
                     const buttonMap = {
                         'xMin': this.setXMinBtn,
@@ -1115,7 +1119,7 @@
                 this.dataPanel.classList.toggle('marker-focus', marker !== null);
                 if (marker) {
                     this.dataPanelNotice.textContent =
-                        `Adjusting ${markerLabels[marker]} marker — click a data row to get back to editing points`;
+                        `Adjusting ${markerLabels[marker]} marker — press Digitize to place points, or click a data row to edit them`;
                 }
             }
 
