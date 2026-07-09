@@ -4,42 +4,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A browser-based plot digitizer: load an image of a plot, calibrate the axes with four min/max markers, click points on a curve to extract their data values. The entire app — CSS, HTML, and JS — is one file, `combined-plot-digitizer.html`. There is no build step, no dependencies, and no test suite; verification is done by driving the app in a real browser.
+A browser-based plot digitizer: load an image of a plot, calibrate the axes with four min/max markers, click points on a curve to extract their data values. This branch is a React + Vite + TypeScript port of the original single-file vanilla app (still on `main` as `combined-plot-digitizer.html`). There is no test suite; verification is done by driving the app in a real browser.
 
 ## Commands
 
 ```bash
-# Serve the app (required for automated verification; plain file:// works for manual use)
-python3 -m http.server 8471 --bind 127.0.0.1   # from repo root, in background
-
-# Quick syntax gate without a browser: extract the <script> body and check it
-python3 -c "
-import re
-html = open('combined-plot-digitizer.html').read()
-open('/tmp/script-body.js','w').write(re.search(r'<script>(.*)</script>', html, re.S).group(1))
-" && node --check /tmp/script-body.js
+npm install
+npm run dev                  # dev server on http://localhost:5173
+npm run build                # tsc --noEmit type check, then vite build to dist/
+npm run preview -- --port 4173   # serve the production build
 ```
 
-For end-to-end verification (loading a test image, calibrating, clicking points, asserting state), follow `.claude/skills/verify/SKILL.md`. It is written for the claude-in-chrome tools; in environments without them, `playwright-core` with the pre-installed Chromium (`executablePath: '/opt/pw-browsers/chromium-*/chrome-linux/chrome'`) works the same way — generate a test plot on an in-page `<canvas>` and inject it through the file input's change handler, since the referenced `datasheet.png` is not committed.
+`npm run build` is the fastest correctness gate — it type-checks everything.
+
+For end-to-end verification, follow `.claude/skills/verify/SKILL.md`: serve the app, load a synthetic test image through the file input, calibrate, place points, and assert on `window.__digitizer` (a debug handle exposing `{ state, viewport }`).
 
 ## Architecture
 
-Everything is in the `AdvancedPlotDigitizer` class, instantiated as the global `digitizer` — automation can read `digitizer.mode`, `digitizer.calibrationPoints`, `digitizer.dataPoints`, `digitizer.selectedMarker`, `digitizer.selectedDataPoint`, `digitizer.scale` to assert state.
+All app state lives in a single reducer (`src/state.ts`); components dispatch actions and render from state. The few things that aren't in the reducer are viewport pan/zoom and viewer size, owned by `App.tsx` as local state.
 
-**Mode state machine.** `this.mode` is one of `'idle'`, a calibration placement mode (`'xMin' | 'xMax' | 'yMin' | 'yMax'`), or `'digitizing'`. `setMode()` handles entering modes (button highlighting, cursor class, restoring the Digitize/Stop button pair); exits back to `'idle'` are assigned directly at the exit sites (marker placed, Escape, row selection, clear).
+**Mode state machine.** `state.mode` is `'idle'`, a marker key (`'xMin' | 'xMax' | 'yMin' | 'yMax'` — placing/adjusting that calibration marker), or `'digitizing'` (canvas clicks add data points). Entering a marker mode implicitly exits digitizing; the Digitize/Stop button pair is derived from `mode`, so there is no separate button state to keep in sync.
 
-**Single-selection invariant.** At most one thing owns the selection at a time: a calibration marker (`selectedMarker`, a mode-name string) or a data point (`selectedDataPoint`, an index). Every path that sets one must clear the other — arrow-key nudging and the Delete key dispatch on which is set. The data panel dims (`updateDataPanelFocus`, CSS class `marker-focus`) whenever a marker owns the selection or a placement mode is active, to signal that keyboard input is not acting on the data table.
+**Single-selection invariant.** `state.selection` is a discriminated union: `{kind:'marker', axis}` or `{kind:'point', index}` or `null`. Arrow-key nudging, Delete, the overlay's selection ring, and the data panel's `marker-focus` dim all derive from it. Because it's one field, marker and point selection cannot coexist by construction.
 
-**`redrawOverlay()` is the choke point.** Every selection or point change funnels through it; it repaints the overlay canvas and syncs the data panel dim state. If you add a new way to change selection, call `redrawOverlay()` and the invariant above takes care of the rest.
+**Data values are derived, never stored.** `state.dataPoints` holds image-pixel positions only. Data values are computed at render/export time by `extractDataPoint` (`src/lib/calibration.ts`) from the current calibration — so the table can never drift from the calibration, and there is no recompute step to forget. `completeCalibration()` is the gate that parses/validates calibration; everything that needs values goes through it.
 
-**Two coordinate systems.** Calibration points and data points are stored in image pixels (`imageX`/`imageY`), which is also the overlay canvas resolution. The view is a CSS transform (`translate(translateX, translateY) scale(scale)`) on `.canvas-container`. Convert screen→image with `(clientXY - rect - translate) / scale`; image→screen with `image * scale + translate`. Arrow-key nudges divide by `scale` so one keypress is one *screen* pixel.
+**Two coordinate systems.** Points are stored in image pixels (also the overlay canvas resolution). The view is a CSS transform on `.canvas-container`: `screen = image * scale + translate`, with `viewport` state in `App.tsx`. Convert screen→image with `(client - rect - translate) / scale`. Arrow-key nudges divide by `scale` so one keypress is one *screen* pixel.
 
-**Data values are derived.** A data point's source of truth is its image position; `dataX`/`dataY` are recomputed from it by `extractDataPoint()` (linear or log interpolation between calibration values, optional rotation correction from the X-axis marker angle). Any change to calibration markers, calibration values, scale type, or rotation correction must call `recomputeDataPoints()` so the table stays consistent.
+**Rendering split.** DOM UI is ordinary React; the markers/points overlay is imperative canvas drawing (`src/lib/overlay.ts`), repainted by an effect in `Viewer.tsx` whenever calibration points, data points, or selection change.
 
-**Global keyboard handler.** `handleKeyDown` is on `document` and early-returns when focus is in an input/select/textarea. Arrow keys nudge the selection, Escape deselects/cancels placement, Delete removes the selected data point.
+**Pure logic lives in `src/lib/`** (calibration math with rotation correction and log scales, value formatting, exporters) with no React imports — test or reuse it freely.
 
 ## Gotchas
 
-- Clicking the file input ("Choose File") intentionally resets all state — image, calibration, and points. Don't trigger it from automation; inject files via `DataTransfer` + a `change` event instead.
-- `handlePaste` opens a `confirm()` dialog when an image is already loaded; native dialogs block browser automation.
-- Rows in the data table are rebuilt from scratch by `renderDataTable()` (innerHTML), so don't hold references to row elements.
+- Clicking the file input ("Choose File") intentionally resets all state — image, calibration, and points. Don't trigger it from automation; inject files by setting `files` on the input and dispatching a `change` event.
+- The paste handler opens a `confirm()` dialog when an image is already loaded; native dialogs block browser automation.
+- The wheel-zoom listener is attached natively (`{ passive: false }`) in `Viewer.tsx` because React's synthetic wheel handler can't `preventDefault`.
+- `window.__digitizer = { state, viewport }` is refreshed on every render for automation/debugging; it's read-only state, not a way to mutate the app.

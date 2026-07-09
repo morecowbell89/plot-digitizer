@@ -1,0 +1,471 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #2c2c2c;
+    color: white;
+    overflow: hidden;
+}
+
+.main-container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Top Control Bar */
+.top-controls {
+    background: rgba(0, 0, 0, 0.9);
+    padding: 10px;
+    z-index: 1000;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    backdrop-filter: blur(10px);
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 10px;
+    border-radius: 6px;
+}
+
+.control-group label {
+    font-size: 12px;
+    color: #ccc;
+    margin-right: 5px;
+}
+
+input[type="file"], input[type="number"], select {
+    padding: 4px 8px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background: #444;
+    color: white;
+    font-size: 12px;
+}
+
+input[type="number"] {
+    width: 80px;
+}
+
+button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+button:disabled {
+    background: #666;
+    cursor: not-allowed;
+}
+
+button.active {
+    background: #28a745;
+}
+
+.zoom-controls {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.zoom-btn {
+    background: #555;
+    padding: 4px 8px;
+    font-size: 14px;
+}
+
+.zoom-level {
+    color: #ccc;
+    font-size: 12px;
+    min-width: 50px;
+    text-align: center;
+}
+
+/* Main Viewer */
+.main-viewer {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background: #1a1a1a;
+}
+
+/* Full-size layer that owns mouse interaction and the cursor */
+.viewer-surface {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    cursor: grab;
+}
+
+.viewer-surface.dragging {
+    cursor: grabbing;
+}
+
+.viewer-surface.placing {
+    cursor: crosshair;
+}
+
+.canvas-container {
+    position: absolute;
+    transform-origin: 0 0;
+    will-change: transform;
+}
+
+.main-image {
+    display: block;
+    max-width: none;
+    max-height: none;
+}
+
+.overlay-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    max-width: none;
+    max-height: none;
+}
+
+/* Minimap */
+.minimap {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 200px;
+    height: 150px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid #555;
+    border-radius: 4px;
+    overflow: hidden;
+    z-index: 1000;
+    cursor: pointer;
+}
+
+.minimap:hover {
+    border-color: #777;
+}
+
+.minimap-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.viewport-indicator {
+    position: absolute;
+    border: 2px solid #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+    pointer-events: none;
+}
+
+/* Drop Zone */
+.drop-zone {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60%;
+    max-width: 600px;
+    min-height: 300px;
+    border: 2px dashed #007bff;
+    border-radius: 12px;
+    padding: 60px;
+    text-align: center;
+    background: rgba(0, 123, 255, 0.1);
+    transition: all 0.3s ease;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.drop-zone.dragover {
+    background: rgba(0, 123, 255, 0.2);
+    border-color: #0056b3;
+    transform: translate(-50%, -50%) scale(1.02);
+}
+
+.drop-zone p {
+    margin: 15px 0;
+    color: #ccc;
+    font-size: 16px;
+}
+
+.drop-zone p:first-child {
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.drop-zone .shortcut {
+    color: #64b5f6;
+    font-weight: 500;
+}
+
+.drop-zone .formats {
+    margin-top: 30px;
+    font-size: 13px;
+    color: #999;
+}
+
+/* Status Bar */
+.status {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 220px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 1000;
+}
+
+.status.info {
+    background: rgba(33, 150, 243, 0.2);
+    border: 1px solid #2196f3;
+    color: #64b5f6;
+}
+
+.status.success {
+    background: rgba(76, 175, 80, 0.2);
+    border: 1px solid #4caf50;
+    color: #81c784;
+}
+
+.status.error {
+    background: rgba(244, 67, 54, 0.2);
+    border: 1px solid #f44336;
+    color: #e57373;
+}
+
+/* Data Output Panel */
+.data-panel {
+    position: absolute;
+    top: 10px;
+    right: 220px;
+    width: 300px;
+    max-height: calc(100vh - 180px);
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid #555;
+    border-radius: 6px;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+}
+
+.data-panel-header,
+.data-panel-content {
+    transition: opacity 0.2s;
+}
+
+/* Dimmed while a calibration marker owns the selection, so it's clear
+   the user is working outside the data panel; the notice explaining
+   this stays at full strength */
+.data-panel.marker-focus .data-panel-header,
+.data-panel.marker-focus .data-panel-content {
+    opacity: 0.45;
+}
+
+.data-panel-notice {
+    display: none;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: #ffb74d;
+    background: rgba(255, 152, 0, 0.15);
+    border-bottom: 1px solid #555;
+}
+
+.data-panel.marker-focus .data-panel-notice {
+    display: block;
+}
+
+.data-panel-header {
+    padding: 10px;
+    border-bottom: 1px solid #555;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.data-panel-content {
+    padding: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.data-output {
+    width: 100%;
+    min-height: 200px;
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 8px;
+    overflow: auto;
+}
+
+.data-output .empty {
+    text-align: center;
+    color: #666;
+    padding: 20px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #ccc;
+}
+
+.data-table th {
+    background: #444;
+    color: white;
+    padding: 8px;
+    text-align: left;
+    border-bottom: 2px solid #666;
+    position: sticky;
+    top: 0;
+}
+
+.data-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #444;
+}
+
+.data-table tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.data-table tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.data-table tbody tr {
+    cursor: pointer;
+}
+
+.data-table tr.selected,
+.data-table tr.selected:hover,
+.data-table tr.selected:nth-child(even) {
+    background: rgba(0, 123, 255, 0.3);
+}
+
+.row-delete {
+    background: transparent;
+    color: #e57373;
+    padding: 0 6px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.row-delete:hover {
+    background: rgba(244, 67, 54, 0.3);
+}
+
+.export-buttons {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.export-buttons button {
+    flex: 1;
+    font-size: 10px;
+    padding: 4px 8px;
+}
+
+/* Calibration Markers */
+.calibration-status {
+    font-size: 10px;
+    color: #999;
+    margin-left: 10px;
+}
+
+/* Instructions */
+.instructions {
+    position: absolute;
+    bottom: 40px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: #bbb;
+    max-width: 320px;
+    backdrop-filter: blur(10px);
+    border: 1px solid #444;
+    z-index: 999;
+}
+
+.instructions strong {
+    color: #fff;
+    font-size: 12px;
+}
+
+.instructions .shortcut {
+    color: #64b5f6;
+    font-weight: 500;
+}
+
+.instructions .divider {
+    margin: 0 4px;
+    color: #666;
+}
+
+/* Checkbox styling */
+input[type="checkbox"] {
+    width: auto;
+    margin-right: 5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .data-panel {
+        width: 250px;
+        right: 170px;
+    }
+
+    .minimap {
+        width: 150px;
+        height: 112px;
+    }
+}
+
+@media (max-width: 800px) {
+    .top-controls {
+        font-size: 10px;
+    }
+
+    .control-group {
+        padding: 3px 6px;
+    }
+
+    input[type="number"] {
+        width: 60px;
+    }
+
+    .data-panel {
+        display: none !important;
+    }
+}

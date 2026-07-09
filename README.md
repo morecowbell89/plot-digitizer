@@ -1,19 +1,36 @@
 # Plot Digitizer
 
-A single-file web app for extracting data points from images of plots — datasheets, papers, screenshots. Open it in a browser, load a plot image, calibrate the axes, and click points on the curve to read off their values.
+A web app for extracting data points from images of plots — datasheets, papers, screenshots. Load a plot image, calibrate the axes, and click points on the curve to read off their values.
 
-No install, no build, no server required: everything lives in [`combined-plot-digitizer.html`](combined-plot-digitizer.html).
+This branch is the **React + Vite + TypeScript** version. The original single-file vanilla implementation lives on `main` as `combined-plot-digitizer.html`.
 
-## Getting started
+## Running it
 
-1. Open `combined-plot-digitizer.html` in a browser (double-click works; serving over HTTP also works).
-2. Load a plot image: drag and drop it, use the file picker, or paste a screenshot with **Ctrl+V**.
-3. Calibrate the axes:
+Requires [Node.js](https://nodejs.org) (v20+).
+
+```bash
+npm install        # one-time setup
+npm run dev        # dev server at http://localhost:5173 with hot reload
+```
+
+To produce a deployable build:
+
+```bash
+npm run build      # type-checks, then outputs static files to dist/
+npm run preview    # serve dist/ locally
+```
+
+The build output is plain static HTML/JS/CSS — host it on any static file server (GitHub Pages, S3, nginx, …).
+
+## Using it
+
+1. Load a plot image: drag and drop it, use the file picker, or paste a screenshot with **Ctrl+V**.
+2. Calibrate the axes:
    - Click **X Min**, then click that reference point on the image (e.g. where the axis reads 100). Enter its value in the box next to the button.
    - Repeat for **X Max**, **Y Min**, and **Y Max**.
    - Set the **X Scale** / **Y Scale** dropdowns to Log for logarithmic axes.
-4. Click **Digitize**, then left-click along the curve to place data points. Values appear in the data panel (the **Data** button toggles it).
-5. Export with **Copy** (tab-delimited), **MATLAB** (ready-to-run plot script), or **CSV** (file download).
+3. Click **Digitize**, then left-click along the curve to place data points. Values appear in the data panel (the **Data** button toggles it).
+4. Export with **Copy** (tab-delimited), **MATLAB** (ready-to-run plot script), or **CSV** (file download).
 
 ## Controls
 
@@ -36,4 +53,4 @@ No install, no build, no server required: everything lives in [`combined-plot-di
 
 ## Development
 
-There is no build step or dependency — edit the HTML file and reload. See [`CLAUDE.md`](CLAUDE.md) for architecture notes and verification workflow.
+See [`CLAUDE.md`](CLAUDE.md) for architecture notes and the verification workflow.
