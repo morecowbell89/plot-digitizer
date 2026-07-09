@@ -129,7 +129,9 @@ export function drawOverlay(
  * that was selected. Drawn on a separate canvas in *screen* coordinates
  * (never scaled with the image), so the hairline is one crisp device pixel
  * at any zoom, while its span grows with the marker it cuts through. A faint
- * black outline keeps the white core readable on any plot background.
+ * black outline keeps the white core readable on any plot background, and
+ * both strokes are semi-transparent so the data under the whisker stays
+ * visible while aligning it.
  */
 export function drawHairlineOverlay(
   canvas: HTMLCanvasElement,
@@ -152,7 +154,7 @@ export function drawHairlineOverlay(
     const y = Math.round(point.y * viewport.scale + viewport.translateY) + 0.5;
     const span = Math.max(imageSpan * viewport.scale, 9);
     if (x < -span || x > cssWidth + span || y < -span || y > cssHeight + span) return;
-    for (const [color, width] of [['rgba(0, 0, 0, 0.6)', 3], ['#ffffff', 1]] as const) {
+    for (const [color, width] of [['rgba(0, 0, 0, 0.35)', 3], ['rgba(255, 255, 255, 0.65)', 1]] as const) {
       ctx.strokeStyle = color;
       ctx.lineWidth = width;
       ctx.beginPath();
