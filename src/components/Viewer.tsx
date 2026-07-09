@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, DragEvent, MouseEvent } from 'react';
 import { ImagePlus } from 'lucide-react';
 import type { Action, DigitizerState } from '../state';
-import { drawOverlay } from '../lib/overlay';
+import { drawHairlineOverlay, drawOverlay } from '../lib/overlay';
 import type { ImagePoint, Viewport } from '../types';
 
 interface Props {
   state: DigitizerState;
   dispatch: Dispatch<Action>;
   viewport: Viewport;
+  viewerSize: { width: number; height: number };
   smoothPan: boolean;
   onPanBy: (dx: number, dy: number) => void;
   onZoomBy: (factor: number, center: { x: number; y: number }) => void;
@@ -17,10 +18,11 @@ interface Props {
 
 const LOUPE_SIZE = 128;
 
-export function Viewer({ state, dispatch, viewport, smoothPan, onPanBy, onZoomBy, onFileDropped }: Props) {
+export function Viewer({ state, dispatch, viewport, viewerSize, smoothPan, onPanBy, onZoomBy, onFileDropped }: Props) {
   const { image, mode, calibration, dataPoints, selection } = state;
   const surfaceRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hairlineRef = useRef<HTMLCanvasElement>(null);
   const dragState = useRef<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -39,6 +41,22 @@ export function Viewer({ state, dispatch, viewport, smoothPan, onPanBy, onZoomBy
     }
     drawOverlay(canvas, calibration.points, dataPoints, selection);
   }, [image, calibration.points, dataPoints, selection]);
+
+  // The center hairlines live on a screen-space canvas so they stay one
+  // device pixel wide at any zoom; pan/zoom therefore needs a repaint
+  useEffect(() => {
+    const canvas = hairlineRef.current;
+    if (!canvas || !image) return;
+    drawHairlineOverlay(
+      canvas,
+      calibration.points,
+      dataPoints,
+      viewport,
+      viewerSize.width,
+      viewerSize.height,
+      window.devicePixelRatio || 1,
+    );
+  }, [image, calibration.points, dataPoints, viewport, viewerSize]);
 
   // A freshly placed point gets a one-shot pulse ring at its screen position
   useEffect(() => {
@@ -204,6 +222,7 @@ export function Viewer({ state, dispatch, viewport, smoothPan, onPanBy, onZoomBy
           <canvas className="overlay-canvas" ref={canvasRef} />
         </div>
       )}
+      {image && <canvas className="hairline-canvas" ref={hairlineRef} />}
       {pulses.map((pulse) => (
         <div key={pulse.id} className="pulse" style={{ left: pulse.x, top: pulse.y }} />
       ))}

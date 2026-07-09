@@ -220,6 +220,7 @@ export default function App() {
           state={state}
           dispatch={dispatch}
           viewport={viewport}
+          viewerSize={viewerSize}
           smoothPan={smoothPan}
           onPanBy={panBy}
           onZoomBy={zoomBy}
