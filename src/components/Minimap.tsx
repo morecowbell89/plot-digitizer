@@ -12,6 +12,15 @@ interface Props {
 export function Minimap({ image, viewport, viewerSize, onNavigate }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  // Fully visible while the view is changing (and on hover via CSS),
+  // ghosted otherwise so it doesn't cover the plot
+  const [active, setActive] = useState(true);
+
+  useEffect(() => {
+    setActive(true);
+    const timer = window.setTimeout(() => setActive(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [viewport]);
 
   useEffect(() => {
     const el = ref.current;
@@ -42,7 +51,7 @@ export function Minimap({ image, viewport, viewerSize, onNavigate }: Props) {
   };
 
   return (
-    <div className="minimap" ref={ref} onClick={onClick}>
+    <div className={`minimap${active ? ' visible' : ''}`} ref={ref} onClick={onClick}>
       <img className="minimap-image" src={image.url} alt="" draggable={false} />
       <div
         className="viewport-indicator"

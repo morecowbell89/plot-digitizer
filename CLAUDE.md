@@ -21,7 +21,9 @@ For end-to-end verification, follow `.claude/skills/verify/SKILL.md`: serve the 
 
 ## Architecture
 
-All app state lives in a single reducer (`src/state.ts`); components dispatch actions and render from state. The few things that aren't in the reducer are viewport pan/zoom and viewer size, owned by `App.tsx` as local state.
+All app state lives in a single reducer (`src/state.ts`); components dispatch actions and render from state. The few things that aren't in the reducer are viewport pan/zoom, viewer size, and toast entries, owned by `App.tsx` as local state.
+
+**Feedback split.** `state.status` acts as an event feed: the reducer sets it only for notable one-shot events (marker placed, point deleted, cleared, export results), and an `App.tsx` effect turns each change into a toast. Persistent contextual guidance (the bottom-center hint pill) is *derived* from `mode`/`selection`, never stored — don't add instructional messages to the reducer.
 
 **Mode state machine.** `state.mode` is `'idle'`, a marker key (`'xMin' | 'xMax' | 'yMin' | 'yMax'` — placing/adjusting that calibration marker), or `'digitizing'` (canvas clicks add data points). Entering a marker mode implicitly exits digitizing; the Digitize/Stop button pair is derived from `mode`, so there is no separate button state to keep in sync.
 
@@ -31,7 +33,9 @@ All app state lives in a single reducer (`src/state.ts`); components dispatch ac
 
 **Two coordinate systems.** Points are stored in image pixels (also the overlay canvas resolution). The view is a CSS transform on `.canvas-container`: `screen = image * scale + translate`, with `viewport` state in `App.tsx`. Convert screen→image with `(client - rect - translate) / scale`. Arrow-key nudges divide by `scale` so one keypress is one *screen* pixel.
 
-**Rendering split.** DOM UI is ordinary React; the markers/points overlay is imperative canvas drawing (`src/lib/overlay.ts`), repainted by an effect in `Viewer.tsx` whenever calibration points, data points, or selection change.
+**Rendering split.** DOM UI is ordinary React (sidebar in `Sidebar.tsx`, shortcuts in `HelpPopover.tsx`, floating pills/toasts in `App.tsx`); the markers/points overlay is imperative canvas drawing (`src/lib/overlay.ts`), repainted by an effect in `Viewer.tsx` whenever calibration points, data points, or selection change. The magnifier loupe and point-drop pulses in `Viewer.tsx` are positioned in *screen* coordinates, so they sit outside the transformed `.canvas-container`.
+
+**Styling.** One global stylesheet (`src/styles.css`) driven by CSS custom properties in `:root` — palette, radii, shadows. Reskin by changing tokens, not component rules. Icons come from `lucide-react`.
 
 **Pure logic lives in `src/lib/`** (calibration math with rotation correction and log scales, value formatting, exporters) with no React imports — test or reuse it freely.
 

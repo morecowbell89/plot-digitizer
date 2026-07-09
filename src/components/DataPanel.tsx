@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Dispatch, MouseEvent } from 'react';
+import { Copy, Download, FileCode2, X } from 'lucide-react';
 import type { Action, DigitizerState } from '../state';
 import { isMarkerMode } from '../state';
 import { extractDataPoint } from '../lib/calibration';
@@ -77,12 +78,16 @@ export function DataPanel({ state, dispatch, calibrated, onSelectPoint }: Props)
   return (
     <div className={`data-panel${focusedMarker ? ' marker-focus' : ''}`}>
       <div className="data-panel-header">
-        <h4>Extracted Data</h4>
+        <h4>
+          Extracted data
+          {dataPoints.length > 0 && <span className="badge">{dataPoints.length}</span>}
+        </h4>
         <button
-          style={{ background: '#666', padding: '2px 6px' }}
+          className="icon-btn"
+          title="Close panel"
           onClick={() => dispatch({ type: 'setPanelOpen', open: false })}
         >
-          ×
+          <X size={14} />
         </button>
       </div>
       <div className="data-panel-notice">
@@ -115,7 +120,7 @@ export function DataPanel({ state, dispatch, calibrated, onSelectPoint }: Props)
                     <td>{value ? formatValue(value.y) : '—'}</td>
                     <td>
                       <button className="row-delete" title="Delete this point" onClick={(e) => onDelete(e, index)}>
-                        ×
+                        <X size={12} />
                       </button>
                     </td>
                   </tr>
@@ -125,9 +130,18 @@ export function DataPanel({ state, dispatch, calibrated, onSelectPoint }: Props)
           )}
         </div>
         <div className="export-buttons">
-          <button onClick={exportCopy}>Copy</button>
-          <button onClick={exportMatlab}>MATLAB</button>
-          <button onClick={exportCsv}>CSV</button>
+          <button className="btn" onClick={exportCopy}>
+            <Copy size={12} />
+            Copy
+          </button>
+          <button className="btn" onClick={exportMatlab}>
+            <FileCode2 size={12} />
+            MATLAB
+          </button>
+          <button className="btn" onClick={exportCsv}>
+            <Download size={12} />
+            CSV
+          </button>
         </div>
       </div>
     </div>

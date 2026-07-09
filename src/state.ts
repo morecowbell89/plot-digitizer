@@ -68,9 +68,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-const MARKER_SELECTED_STATUS =
-  'Marker selected — nudge with arrow keys (Shift for larger steps), or left-click to re-place it';
-
 function clearedPoints(state: DigitizerState): DigitizerState {
   return {
     ...state,
@@ -91,7 +88,7 @@ export function reducer(state: DigitizerState, action: Action): DigitizerState {
       return {
         ...clearedPoints(state),
         image: action.image,
-        status: status('Image loaded. Set calibration points to begin digitizing.'),
+        status: status('Image loaded — set the four axis markers to calibrate'),
       };
 
     case 'reset':
@@ -103,34 +100,22 @@ export function reducer(state: DigitizerState, action: Action): DigitizerState {
 
     case 'enterMarkerMode': {
       // Re-select an existing marker so arrow keys can nudge it. Entering a
-      // marker mode also cleanly exits digitize mode.
+      // marker mode also cleanly exits digitize mode. The contextual hint
+      // pill derives its message from mode/selection, so no status here.
       const existing = state.calibration.points[action.axis];
       return {
         ...state,
         mode: action.axis,
         selection: existing ? { kind: 'marker', axis: action.axis } : null,
-        status: existing
-          ? status(MARKER_SELECTED_STATUS)
-          : status(`Left-click on the ${action.axis.startsWith('x') ? 'X' : 'Y'}-axis ` +
-              `${action.axis.endsWith('Min') ? 'minimum' : 'maximum'} reference point`),
       };
     }
 
     case 'startDigitizing':
       if (!completeCalibration(state.calibration)) return state;
-      return {
-        ...state,
-        mode: 'digitizing',
-        selection: null,
-        status: status('Left-click to place data points • Press Stop to pause digitizing'),
-      };
+      return { ...state, mode: 'digitizing', selection: null };
 
     case 'stopDigitizing':
-      return {
-        ...state,
-        mode: 'idle',
-        status: status('Digitizing stopped. You can now pan/zoom or resume digitizing. Right-click to pan anytime.'),
-      };
+      return { ...state, mode: 'idle' };
 
     case 'placeMarker': {
       if (!isMarkerMode(state.mode)) return state;
@@ -144,7 +129,7 @@ export function reducer(state: DigitizerState, action: Action): DigitizerState {
         },
         selection: { kind: 'marker', axis },
         status: status(
-          `${AXIS_LABELS[axis]} marker set. Fine-tune with arrow keys, then enter its value.`,
+          `${AXIS_LABELS[axis]} marker set — fine-tune with arrow keys, then enter its value`,
           'success',
         ),
       };
@@ -176,19 +161,14 @@ export function reducer(state: DigitizerState, action: Action): DigitizerState {
 
     case 'addDataPoint': {
       if (state.mode !== 'digitizing' || !completeCalibration(state.calibration)) return state;
-      const dataPoints = [...state.dataPoints, action.point];
-      return {
-        ...state,
-        dataPoints,
-        status: status(`${dataPoints.length} data points extracted`, 'success'),
-      };
+      return { ...state, dataPoints: [...state.dataPoints, action.point] };
     }
 
     case 'togglePointSelected': {
       const alreadySelected =
         state.selection?.kind === 'point' && state.selection.index === action.index;
       if (alreadySelected) {
-        return { ...state, selection: null, status: status('Point deselected') };
+        return { ...state, selection: null };
       }
       // Selecting a row pulls focus back from marker adjustment, including
       // leaving an in-progress marker placement mode
@@ -196,9 +176,6 @@ export function reducer(state: DigitizerState, action: Action): DigitizerState {
         ...state,
         mode: isMarkerMode(state.mode) ? 'idle' : state.mode,
         selection: { kind: 'point', index: action.index },
-        status: status(
-          `Point ${action.index + 1} selected — nudge with arrow keys (Shift for larger steps), Delete to remove`,
-        ),
       };
     }
 
@@ -262,7 +239,6 @@ export function reducer(state: DigitizerState, action: Action): DigitizerState {
         ...state,
         mode: leavingPlacement ? 'idle' : state.mode,
         selection: null,
-        status: status('Selection cleared'),
       };
     }
 

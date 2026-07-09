@@ -24,20 +24,21 @@ The build output is plain static HTML/JS/CSS — host it on any static file serv
 
 ## Using it
 
-1. Load a plot image: drag and drop it, use the file picker, or paste a screenshot with **Ctrl+V**.
-2. Calibrate the axes:
-   - Click **X Min**, then click that reference point on the image (e.g. where the axis reads 100). Enter its value in the box next to the button.
-   - Repeat for **X Max**, **Y Min**, and **Y Max**.
-   - Set the **X Scale** / **Y Scale** dropdowns to Log for logarithmic axes.
-3. Click **Digitize**, then left-click along the curve to place data points. Values appear in the data panel (the **Data** button toggles it).
-4. Export with **Copy** (tab-delimited), **MATLAB** (ready-to-run plot script), or **CSV** (file download).
+The sidebar walks through the workflow top to bottom:
+
+1. **Image** — drag and drop a plot image anywhere, click **Load image**, or paste a screenshot with **Ctrl+V**.
+2. **Calibration** — click **X Min**, then click that reference point on the image (a magnifier loupe follows the cursor for precision). Enter its value in the box next to the button. Repeat for **X Max**, **Y Min**, and **Y Max**. Flip an axis to **Log** for logarithmic scales.
+3. **Digitize** — click **Digitize**, then left-click along the curve to place data points. Values appear in the data panel (the **Data** button toggles it).
+4. Export from the data panel with **Copy** (tab-delimited), **MATLAB** (ready-to-run plot script), or **CSV** (file download).
+
+A **?** button in the bottom-left corner lists all keyboard shortcuts.
 
 ## Controls
 
 | Action | Input |
 |---|---|
 | Pan image | Right-click + drag |
-| Zoom | Mouse wheel, or the **+** / **−** / **Fit** buttons |
+| Zoom | Mouse wheel, or the **+** / **−** / **Fit** pill at the bottom |
 | Jump to a location | Click the minimap |
 | Place a point / marker | Left-click |
 | Nudge selected marker or point | Arrow keys (**Shift** for 10× steps) |
