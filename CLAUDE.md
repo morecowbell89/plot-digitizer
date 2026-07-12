@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A browser-based plot digitizer: load an image of a plot, calibrate the axes with four min/max markers, click points on a curve to extract their data values. The entire app — CSS, HTML, and JS — is one file, `combined-plot-digitizer.html`. There is no build step, no dependencies, and no test suite; verification is done by driving the app in a real browser.
+A browser-based plot digitizer: load an image of a plot, calibrate the axes with four min/max markers, click points on a curve to extract their data values. The entire app — CSS, HTML, and JS — is one file, `index.html` (named so GitHub Pages serves it at the repo root; deployed by `.github/workflows/pages.yml` on push to main). There is no build step, no dependencies, and no test suite; verification is done by driving the app in a real browser.
 
 ## Commands
 
@@ -15,7 +15,7 @@ python3 -m http.server 8471 --bind 127.0.0.1   # from repo root, in background
 # Quick syntax gate without a browser: extract the <script> body and check it
 python3 -c "
 import re
-html = open('combined-plot-digitizer.html').read()
+html = open('index.html').read()
 open('/tmp/script-body.js','w').write(re.search(r'<script>(.*)</script>', html, re.S).group(1))
 " && node --check /tmp/script-body.js
 ```
