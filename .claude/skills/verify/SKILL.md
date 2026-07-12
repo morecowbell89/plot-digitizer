@@ -1,6 +1,6 @@
 ---
 name: verify
-description: How to run and verify combined-plot-digitizer.html end-to-end in Chrome
+description: How to run and verify the plot digitizer (index.html) end-to-end in Chrome
 ---
 
 # Verifying the plot digitizer
@@ -13,9 +13,9 @@ Single-file browser app, no build step.
 python3 -m http.server 8471 --bind 127.0.0.1   # run from repo root, in background
 ```
 
-Open `http://127.0.0.1:8471/combined-plot-digitizer.html` with the
-claude-in-chrome tools. Serving over HTTP (not `file://`) matters: it lets the
-test image be fetched same-origin.
+Open `http://127.0.0.1:8471/` with the claude-in-chrome tools (the app is
+`index.html`, so it serves at the root). Serving over HTTP (not `file://`)
+matters: it lets the test image be fetched same-origin.
 
 ## Load a test image
 

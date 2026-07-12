@@ -2,11 +2,13 @@
 
 A single-file web app for extracting data points from images of plots — datasheets, papers, screenshots. Open it in a browser, load a plot image, calibrate the axes, and click points on the curve to read off their values.
 
-No install, no build, no server required: everything lives in [`combined-plot-digitizer.html`](combined-plot-digitizer.html).
+No install, no build, no server required: everything lives in [`index.html`](index.html).
+
+**Use it online:** <https://morecowbell89.github.io/plot-digitizer/>
 
 ## Getting started
 
-1. Open `combined-plot-digitizer.html` in a browser (double-click works; serving over HTTP also works).
+1. Open the [hosted version](https://morecowbell89.github.io/plot-digitizer/), or open `index.html` in a browser (double-click works; serving over HTTP also works).
 2. Load a plot image: drag and drop it, use the file picker, or paste a screenshot with **Ctrl+V**.
 3. Calibrate the axes:
    - Click **X Min**, then click that reference point on the image (e.g. where the axis reads 100). Enter its value in the box next to the button.
