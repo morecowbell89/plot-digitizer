@@ -1109,11 +1109,15 @@
                         if (this.isCalibrated()) {
                             const dataPoint = this.extractDataPoint(imageX, imageY);
                             this.dataPoints.push({
-                                imageX: imageX, 
-                                imageY: imageY, 
-                                dataX: dataPoint.x, 
+                                imageX: imageX,
+                                imageY: imageY,
+                                dataX: dataPoint.x,
                                 dataY: dataPoint.y
                             });
+                            // Select the point we just placed so arrow keys
+                            // fine-tune it right away, no trip to the data table
+                            this.selectedMarker = null;
+                            this.selectedDataPoint = this.dataPoints.length - 1;
                             this.redrawOverlay();
                             this.updateDataOutput();
                             this.undoLastBtn.disabled = false;
