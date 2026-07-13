@@ -452,6 +452,15 @@
             margin-right: 5px;
         }
 
+        /* Marker opacity slider */
+        input[type="range"] {
+            width: 90px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            accent-color: #007bff;
+        }
+
         /* Responsive adjustments */
         @media (max-width: 1200px) {
             .data-panel {
@@ -539,6 +548,12 @@
             <div class="control-group">
                 <input type="checkbox" id="rotationCorrection" checked>
                 <label>Rotation Correction</label>
+            </div>
+
+            <div class="control-group">
+                <label>Markers:</label>
+                <input type="range" id="markerOpacity" min="0" max="100" value="100"
+                       title="Fade data markers to see the curve underneath — selected point stays visible">
             </div>
 
             <span class="calibration-status" id="calibrationStatus">Load image to begin</span>
@@ -663,6 +678,7 @@
                 this.xScale = document.getElementById('xScale');
                 this.yScale = document.getElementById('yScale');
                 this.rotationCorrection = document.getElementById('rotationCorrection');
+                this.markerOpacity = document.getElementById('markerOpacity');
                 this.calibrationStatus = document.getElementById('calibrationStatus');
 
                 // Buttons
@@ -758,6 +774,9 @@
                 this.xScale.addEventListener('change', () => this.recomputeDataPoints());
                 this.yScale.addEventListener('change', () => this.recomputeDataPoints());
                 this.rotationCorrection.addEventListener('change', () => this.recomputeDataPoints());
+
+                // Marker opacity slider fades data-point reticles
+                this.markerOpacity.addEventListener('input', () => this.redrawOverlay());
 
                 // Window resize
                 window.addEventListener('resize', () => {
@@ -1149,6 +1168,12 @@
                 }
             }
 
+            // Slider opacity applied to data-point reticles; the selected point
+            // and the calibration markers always stay fully visible
+            dataMarkerAlpha() {
+                return parseInt(this.markerOpacity.value, 10) / 100;
+            }
+
             redrawOverlay() {
                 this.updateDataPanelFocus();
 
@@ -1185,13 +1210,15 @@
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 if (!this.imageLoaded) return;
 
-                const cross = (x, y, imageSpan) => {
+                const cross = (x, y, imageSpan, alpha) => {
+                    if (alpha === 0) return;
                     // Snap to the pixel grid (+0.5) so a 1px stroke fills exactly one pixel
                     const screenX = Math.round(x * this.scale + this.translateX) + 0.5;
                     const screenY = Math.round(y * this.scale + this.translateY) + 0.5;
                     const span = Math.max(imageSpan * this.scale, 9);
                     if (screenX < -span || screenX > width + span ||
                         screenY < -span || screenY > height + span) return;
+                    ctx.globalAlpha = alpha;
                     [['rgba(0, 0, 0, 0.35)', 3], ['rgba(255, 255, 255, 0.65)', 1]].forEach(([color, lineWidth]) => {
                         ctx.strokeStyle = color;
                         ctx.lineWidth = lineWidth;
@@ -1202,13 +1229,18 @@
                         ctx.lineTo(screenX, screenY + span);
                         ctx.stroke();
                     });
+                    ctx.globalAlpha = 1;
                 };
 
                 ['xMin', 'xMax', 'yMin', 'yMax'].forEach(key => {
                     const point = this.calibrationPoints[key];
-                    if (point) cross(point.x, point.y, 15);
+                    if (point) cross(point.x, point.y, 15, 1);
                 });
-                this.dataPoints.forEach(point => cross(point.imageX, point.imageY, 14));
+                const dataAlpha = this.dataMarkerAlpha();
+                this.dataPoints.forEach((point, index) => {
+                    cross(point.imageX, point.imageY, 14,
+                        index === this.selectedDataPoint ? 1 : dataAlpha);
+                });
             }
 
             drawCalibrationPoint(point, color, type, selected) {
@@ -1259,8 +1291,11 @@
                 const arm = 14;   // crosshair arm length
                 const hole = 5;   // open center radius, keeps the curve visible
 
+                const alpha = selected ? 1 : this.dataMarkerAlpha();
+                if (alpha === 0) return;
+
                 ctx.save();
-                ctx.globalAlpha = 0.9;
+                ctx.globalAlpha = 0.9 * alpha;
                 ctx.lineCap = 'round';
 
                 // Black underlay then green, so the hairlines read on any background
