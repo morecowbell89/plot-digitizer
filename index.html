@@ -148,6 +148,10 @@
             display: block;
             max-width: none;
             max-height: none;
+            /* Datasheet plots are often PNGs with a transparent background;
+               back them with white so they read like they do in any viewer
+               instead of showing the dark canvas through */
+            background: #fff;
         }
 
         .overlay-canvas {
@@ -193,6 +197,7 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
+            background: #fff;
         }
 
         .viewport-indicator {
